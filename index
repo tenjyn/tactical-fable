@@ -117,16 +117,16 @@ const CLASSES = {
   "Catling Vagabond": { key:"Thief", hp:18, ac:13, atk:3, dmg:[1,6], spd:5, special:"Shadowstep", specialInfo:"Backstab: +1d4 if adjacent", type:"melee" },
 };
 
-// Simplified logging: Player and Enemy only.
-function log(msg){
-  const p = document.createElement('p');
-  p.innerHTML = msg;
-  document.querySelector('#log').appendChild(p);
-  document.querySelector('#log').scrollTop = document.querySelector('#log').scrollHeight;
-}
-
-// Example adjustment in attack function (pseudocode snippet):
-// if(attacker.side==='P'){ log(`Player hits for ${total}`); } else { log(`Enemy hits for ${total}`); }
+  // Simplified logging: Player and Enemy only.
+  function log(msg){
+    const p = document.createElement('p');
+    p.textContent = msg;
+    const logEl = document.querySelector('#log');
+    logEl.appendChild(p);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+  // Example adjustment in attack function (pseudocode snippet):
+  // if(attacker.side==='P'){ log(`Player hits for ${total}`); } else { log(`Enemy hits for ${total}`); }
 
 </script>
 </body>
