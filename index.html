@@ -1,149 +1,360 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Tactical Fable — Grid Combat</title>
-  <style>
-    :root{
-      --bg:#0f1115; --panel:#161a22; --muted:#8892a6; --line:#2a3040; --acc:#9be7a8; --acc2:#ffd166;
-    }
-    *{box-sizing:border-box}
-    body{margin:0; font-family:ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial; background:var(--bg); color:#e6edf3}
-    header{display:flex; gap:12px; align-items:center; padding:14px 16px; border-bottom:1px solid var(--line); position:sticky; top:0; background:linear-gradient(180deg, rgba(15,17,21,.98), rgba(15,17,21,.88)); backdrop-filter:saturate(1.2) blur(6px)}
-    header h1{font-size:16px; margin:0; letter-spacing:.4px}
-    header .sep{opacity:.4}
-    .wrap{display:grid; grid-template-columns: 320px 1fr 320px; gap:14px; padding:14px}
-    .panel{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:12px}
-    .panel h2{margin:.2rem 0 .6rem; font-size:14px; color:#c9d4ee; letter-spacing:.3px}
-
-    /* Grid */
-    #grid{display:grid; grid-template-columns: repeat(10, 40px); grid-auto-rows:40px; gap:4px; place-content:start}
-    .tile{width:40px; height:40px; background:#101621; border:1px solid #0b0f16; border-radius:6px; position:relative; display:grid; place-items:center; font-size:11px; color:#6b7485}
-    .tile.coords{font-size:9px; opacity:.55; position:absolute; left:4px; top:2px}
-    .tile.obstacle{background:#1b2231; border-color:#0e1420}
-    .tile.hazard{background:linear-gradient(135deg, #1b2231, #232b3d)}
-    .tile.in-range{outline:2px dashed #4aa1ff55}
-    .tile.path{outline:2px solid #4aa1ff99}
-    .tile.targetable{outline:2px solid #ff6b6b99}
-
-    .unit{width:28px; height:28px; border-radius:8px; display:grid; place-items:center; font-weight:700}
-    .P{background:linear-gradient(180deg, #34d399, #10b981); color:#052012; border:1px solid #0d8f66}
-    .E{background:linear-gradient(180deg, #fca5a5, #f87171); color:#2a0b0b; border:1px solid #b43a3a}
-
-    .row{display:flex; gap:8px; flex-wrap:wrap}
-    button{background:#182031; color:#dbe4ff; border:1px solid #2a3856; border-radius:10px; padding:8px 10px; cursor:pointer; font-size:13px}
-    button:hover{border-color:#3d4d74}
-    button:disabled{opacity:.45; cursor:not-allowed}
-    .primary{background:#1e2a3f; border-color:#3b4d78}
-    .accent{background:#16251b; border-color:#205a35; color:#b7ffd0}
-
-    .stat{display:flex; align-items:center; gap:6px; padding:6px 8px; background:#121723; border:1px solid #20283b; border-radius:10px; font-size:13px}
-    .stat .k{opacity:.6; width:88px}
-    .log{height:220px; overflow:auto; font-size:12px; line-height:1.4; padding-right:6px}
-    .log p{margin:.35rem 0}
-    .hpbar{height:8px; background:#0d141f; border:1px solid #22314e; border-radius:999px; overflow:hidden}
-    .hpbar > span{display:block; height:100%; background:linear-gradient(90deg, #16a34a, #86efac)}
-    .flex{display:flex; gap:8px}
-    .grid-label{font-size:11px; color:var(--muted); margin-bottom:6px}
-    .kbd{background:#0b0f16; border:1px solid #1b2231; padding:2px 6px; border-radius:6px; font-size:11px}
-    footer{padding:10px 16px; color:var(--muted); border-top:1px solid var(--line)}
-    a{color:#9bd1ff}
-  </style>
-</head>
-<body>
-  <header>
-    <h1>⚔️ Tactical Fable</h1>
-    <span class="sep">•</span>
-    <span class="muted">Grid-based tactical combat in the Realms of Fable</span>
-    <span class="sep">•</span>
-    <a href="dashboard.html" class="muted">Dashboard</a>
-  </header>
-
-  <div class="wrap">
-    <!-- Left: Loadout / Stats -->
-    <aside class="panel" id="left">
-      <h2>Loadout</h2>
-      <div class="row" id="classPicker"></div>
-      <div style="height:8px"></div>
-      <div class="stat"><span class="k">Class</span><span id="pClass">—</span></div>
-      <div class="stat"><span class="k">HP</span><span id="pHP">—</span></div>
-      <div class="stat"><span class="k">AC</span><span id="pAC">—</span></div>
-      <div class="stat"><span class="k">ATK</span><span id="pATK">—</span></div>
-      <div class="stat"><span class="k">DMG</span><span id="pDMG">—</span></div>
-      <div class="stat"><span class="k">SPD (move)</span><span id="pSPD">—</span></div>
-      <div style="height:8px"></div>
-      <div class="hpbar"><span id="hpbar" style="width:100%"></span></div>
-      <div style="height:8px"></div>
-      <div class="row">
-        <button id="newMatch" class="primary">New Match</button>
-        <button id="toggleAI">AI: On</button>
-      </div>
-      <p style="color:#9fb3c8; font-size:12px">Move your chosen Fable archetype across the grid. Tactics are primary; lore is seasoning.</p>
-    </aside>
-
-    <!-- Center: Grid -->
-    <main class="panel">
-      <div class="grid-label">Round <span id="round">1</span> • Turn: <span id="turnOf">Player</span></div>
-      <div id="grid"></div>
-    </main>
-
-    <!-- Right: Actions / Log -->
-    <aside class="panel" id="right">
-      <h2>Actions</h2>
-      <div class="row">
-        <button id="btnEnd" title="End your turn">End Turn</button>
-        <button id="btnAttack" class="accent" disabled>Attack</button>
-        <button id="btnSpecial" disabled>Special</button>
-      </div>
-      <div style="height:10px"></div>
-      <div class="stat"><span class="k">Phase</span><span id="phase">Move</span></div>
-      <div class="stat"><span class="k">Move left</span><span id="moveLeft">—</span></div>
-      <div class="stat"><span class="k">Range</span><span id="rangeInfo">—</span></div>
-      <div style="height:10px"></div>
-      <h2>Battle Log</h2>
-      <div class="log" id="log"></div>
-    </aside>
-  </div>
-
-  <footer>
-    Tactical Fable © The Sable Society (in spirit). Built for GitHub Pages.
-  </footer>
-
 <script>
-// Classes framed in the Fable setting — mechanics-first, lore minimal.
-const CLASSES = {
-  "Knight of Arma": { key:"Fighter", hp:28, ac:16, atk:4, dmg:[1,8], spd:4, special:"Brassstrike", specialInfo:"+2 dmg, −2 to hit (melee)", type:"melee" },
-  "Lantern-Bearer": { key:"Cleric", hp:22, ac:14, atk:3, dmg:[1,6], spd:4, special:"Consecrate", specialInfo:"Heal 1d6 (self or adj ally)", type:"melee" },
-  "Woadwitch": { key:"Magic-User", hp:16, ac:12, atk:2, dmg:[1,4], spd:4, special:"Woadflame", specialInfo:"Firebolt 1d8 @ range 4", type:"ranged" },
-  "Catling Vagabond": { key:"Thief", hp:18, ac:13, atk:3, dmg:[1,6], spd:5, special:"Shadowstep", specialInfo:"Backstab: +1d4 if adjacent", type:"melee" },
+/* === Minimal playable loop for Tactical Fable === */
+
+const GRID_W = 10, GRID_H = 10;
+const gridEl = document.getElementById('grid');
+const roundEl = document.getElementById('round');
+const turnOfEl = document.getElementById('turnOf');
+const phaseEl = document.getElementById('phase');
+const moveLeftEl = document.getElementById('moveLeft');
+const rangeInfoEl = document.getElementById('rangeInfo');
+const hpbarEl = document.getElementById('hpbar');
+
+const btnEnd = document.getElementById('btnEnd');
+const btnAttack = document.getElementById('btnAttack');
+const btnSpecial = document.getElementById('btnSpecial');
+const btnNew = document.getElementById('newMatch');
+const btnAI = document.getElementById('toggleAI');
+
+const classPickerEl = document.getElementById('classPicker');
+const pClassEl = document.getElementById('pClass');
+const pHPEl = document.getElementById('pHP');
+const pACEl = document.getElementById('pAC');
+const pATKEl = document.getElementById('pATK');
+const pDMGEl = document.getElementById('pDMG');
+const pSPDEl = document.getElementById('pSPD');
+
+let tiles = []; // [y][x] tile DOM nodes
+let state = {
+  aiOn: true,
+  round: 1,
+  turn: 'P', // 'P' or 'E'
+  phase: 'Move', // 'Move' or 'Action'
+  selectedClassName: Object.keys(CLASSES)[0],
+  units: {
+    P: null,
+    E: null
+  },
+  moveLeft: 0
 };
 
-  // Simplified logging: Player and Enemy only.
-  function log(msg){
-    const p = document.createElement('p');
-    p.textContent = msg;
-    const logEl = document.querySelector('#log');
-    logEl.appendChild(p);
-    logEl.scrollTop = logEl.scrollHeight;
-  }
-  // Example adjustment in attack function (pseudocode snippet):
-  // if(attacker.side==='P'){ log(`Player hits for ${total}`); } else { log(`Enemy hits for ${total}`); }
+function die(sides){ return Math.floor(Math.random()*sides)+1; }
+function roll([n, s]){ let t=0; for(let i=0;i<n;i++) t+=die(s); return t; }
+function manhattan(a,b){ return Math.abs(a.x-b.x)+Math.abs(a.y-b.y); }
+function inBounds(x,y){ return x>=0 && y>=0 && x<GRID_W && y<GRID_H; }
+function rangeFor(u){
+  const cls = u.cls;
+  return (cls.type==='ranged') ? 4 : 1;
+}
 
-  const params = new URLSearchParams(location.search);
-  const projectName = params.get("project");
-  if (projectName) {
-    const header = document.querySelector("header");
-    const sep = document.createElement("span");
-    sep.className = "sep";
-    sep.textContent = "•";
-    const projectEl = document.createElement("span");
-    projectEl.className = "muted";
-    projectEl.textContent = "Project: " + projectName;
-    header.appendChild(sep);
-    header.appendChild(projectEl);
+function buildGrid(){
+  gridEl.innerHTML = '';
+  tiles = [];
+  for(let y=0;y<GRID_H;y++){
+    const row=[];
+    for(let x=0;x<GRID_W;x++){
+      const t = document.createElement('div');
+      t.className='tile';
+      t.dataset.x=x; t.dataset.y=y;
+      t.addEventListener('click', ()=> onTileClick(x,y));
+      gridEl.appendChild(t);
+      row.push(t);
+    }
+    tiles.push(row);
   }
+}
 
+function clearHighlights(){
+  for(const row of tiles){
+    for(const t of row){
+      t.classList.remove('in-range','path','targetable');
+    }
+  }
+}
+
+function placeUnits(){
+  // Player in bottom-left-ish; Enemy in top-right-ish
+  const cls = CLASSES[state.selectedClassName];
+  state.units.P = { side:'P', x:1, y:GRID_H-2, hp:cls.hp, maxhp:cls.hp, cls };
+  state.units.E = { side:'E', x:GRID_W-2, y:1, hp:22, maxhp:22,
+                    cls:{key:'Bandit', hp:22, ac:13, atk:3, dmg:[1,6], spd:4, type:'melee', special:'None'} };
+}
+
+function renderUnits(){
+  // wipe unit nodes
+  for(const row of tiles) for(const t of row) t.innerHTML='';
+  // draw units
+  for(const id of ['P','E']){
+    const u = state.units[id]; if(!u) continue;
+    const t = tiles[u.y][u.x];
+    const el = document.createElement('div');
+    el.className = 'unit '+id;
+    el.textContent = id;
+    t.appendChild(el);
+  }
+}
+
+function updateHUD(){
+  const u = state.units.P;
+  pClassEl.textContent = state.selectedClassName;
+  pHPEl.textContent = `${u.hp}/${u.maxhp}`;
+  pACEl.textContent = u.cls.ac;
+  pATKEl.textContent = `+${u.cls.atk}`;
+  pDMGEl.textContent = `${u.cls.dmg[0]}d${u.cls.dmg[1]}`;
+  pSPDEl.textContent = u.cls.spd;
+
+  hpbarEl.style.width = `${Math.max(0,(u.hp/u.maxhp)*100)}%`;
+
+  roundEl.textContent = state.round;
+  turnOfEl.textContent = (state.turn==='P'?'Player':'Enemy');
+  phaseEl.textContent = state.phase;
+  moveLeftEl.textContent = state.moveLeft;
+  rangeInfoEl.textContent = rangeFor(u);
+  // buttons
+  const playerTurn = state.turn==='P';
+  btnEnd.disabled = !playerTurn;
+  btnAttack.disabled = !(playerTurn && state.phase==='Action' && inAttackRange());
+  btnSpecial.disabled = !(playerTurn && state.phase==='Action'); // simple gate
+}
+
+function startPlayerTurn(){
+  state.turn='P';
+  state.phase='Move';
+  state.moveLeft = state.units.P.cls.spd;
+  log('Your turn begins.');
+  highlightReachable(state.units.P);
+  updateHUD();
+}
+
+function endTurn(){
+  clearHighlights();
+  if(state.turn==='P'){
+    state.turn='E'; state.phase='Move';
+    updateHUD();
+    enemyAct();
+  }else{
+    state.turn='P';
+    state.round += 1;
+    startPlayerTurn();
+  }
+}
+
+function inAttackRange(){
+  const a = state.units.P, b = state.units.E;
+  return manhattan(a,b) <= rangeFor(a);
+}
+
+function onTileClick(x,y){
+  if(state.turn!=='P' || state.phase!=='Move') return;
+  const p = state.units.P;
+  const dist = Math.abs(x-p.x)+Math.abs(y-p.y);
+  if(dist===0) return;
+  if(dist<=state.moveLeft && isFree(x,y)){
+    p.x=x; p.y=y;
+    state.moveLeft -= dist;
+    renderUnits();
+    if(state.moveLeft<=0){
+      state.phase='Action';
+      clearHighlights();
+      highlightTargets();
+    }else{
+      highlightReachable(p);
+    }
+    updateHUD();
+  }
+}
+
+function isFree(x,y){
+  const other = state.units.E;
+  return !(other && other.x===x && other.y===y);
+}
+
+function highlightReachable(u){
+  clearHighlights();
+  for(let yy=0; yy<GRID_H; yy++){
+    for(let xx=0; xx<GRID_W; xx++){
+      const d = Math.abs(xx-u.x)+Math.abs(yy-u.y);
+      if(d>0 && d<=state.moveLeft && isFree(xx,yy)){
+        tiles[yy][xx].classList.add('in-range');
+      }
+    }
+  }
+}
+
+function highlightTargets(){
+  const p = state.units.P, e = state.units.E;
+  if(!e) return;
+  if(manhattan(p,e)<=rangeFor(p)){
+    tiles[e.y][e.x].classList.add('targetable');
+  }
+}
+
+// --- Combat ---
+function doAttack(attacker, defender){
+  const toHit = die(20) + attacker.cls.atk;
+  const hit = toHit >= defender.cls.ac;
+  if(hit){
+    const dmg = roll(attacker.cls.dmg);
+    defender.hp -= dmg;
+    log(`${attacker.side==='P'?'You':'Enemy'} hit for ${dmg} (roll ${toHit}).`);
+    if(defender.hp<=0){
+      defender.hp=0;
+      renderUnits();
+      updateHUD();
+      if(defender.side==='E'){ log('Enemy defeated. You win!'); }
+      else { log('You were defeated.'); }
+      // Lock buttons on end state
+      btnAttack.disabled = true; btnEnd.disabled = true; btnSpecial.disabled = true;
+      return true;
+    }
+  }else{
+    log(`${attacker.side==='P'?'You':'Enemy'} missed (roll ${toHit}).`);
+  }
+  renderUnits();
+  updateHUD();
+  return false;
+}
+
+// --- Enemy AI: step toward, then attack if in range ---
+function enemyAct(){
+  const e = state.units.E, p = state.units.P;
+  if(!e || !p) return;
+  const r = rangeFor(e);
+  const d = manhattan(e,p);
+  if(d>r){
+    // move 1 step toward player
+    const dx = Math.sign(p.x - e.x), dy = Math.sign(p.y - e.y);
+    const cand = [{x:e.x+dx, y:e.y}, {x:e.x, y:e.y+dy}]
+      .filter(v=>inBounds(v.x,v.y) && (v.x!==p.x || v.y!==p.y));
+    if(cand.length) { e.x = cand[0].x; e.y = cand[0].y; }
+    log('Enemy moves.');
+    renderUnits();
+  }
+  // try to attack if now in range
+  if(manhattan(e,p)<=r){
+    const done = doAttack(e,p);
+    if(done) return; // game over
+  }
+  // Back to player
+  endTurn();
+}
+
+// --- UI wiring ---
+btnEnd.addEventListener('click', ()=>{
+  if(state.turn==='P'){ // if in Move, forfeit action; if in Action, end
+    if(state.phase==='Move'){ state.phase='Action'; clearHighlights(); highlightTargets(); updateHUD(); }
+    else { endTurn(); }
+  }
+});
+btnAttack.addEventListener('click', ()=>{
+  if(state.turn!=='P' || state.phase!=='Action') return;
+  const killed = doAttack(state.units.P, state.units.E);
+  if(!killed){ endTurn(); }
+});
+btnSpecial.addEventListener('click', ()=>{
+  if(state.turn!=='P' || state.phase!=='Action') return;
+  const u = state.units.P;
+  // Minimal specials:
+  if(u.cls.special==='Consecrate'){ // heal 1d6 self
+    const amt = die(6);
+    u.hp = Math.min(u.maxhp, u.hp+amt);
+    log(`You cast Consecrate and heal ${amt}.`);
+  }else if(u.cls.special==='Woadflame'){ // ranged 1d8 at range 4
+    const e = state.units.E;
+    if(manhattan(u,e)<=4){
+      const dmg = die(8);
+      e.hp -= dmg;
+      log(`You cast Woadflame for ${dmg}.`);
+      if(e.hp<=0){ e.hp=0; renderUnits(); updateHUD(); log('Enemy defeated. You win!'); btnAttack.disabled=btnEnd.disabled=btnSpecial.disabled=true; return; }
+    }else{
+      log('No target in Woadflame range.');
+      updateHUD();
+      return;
+    }
+  }else if(u.cls.special==='Brassstrike'){
+    // +2 dmg, -2 to hit (melee)
+    const e = state.units.E;
+    if(manhattan(u,e)<=1){
+      const toHit = die(20) + u.cls.atk - 2;
+      if(toHit >= e.cls.ac){
+        let dmg = roll(u.cls.dmg) + 2;
+        e.hp -= dmg;
+        log(`Brassstrike hits for ${dmg} (roll ${toHit}).`);
+        if(e.hp<=0){ e.hp=0; renderUnits(); updateHUD(); log('Enemy defeated. You win!'); btnAttack.disabled=btnEnd.disabled=btnSpecial.disabled=true; return; }
+      }else{
+        log(`Brassstrike missed (roll ${toHit}).`);
+      }
+    }else{
+      log('Enemy not adjacent for Brassstrike.');
+      updateHUD();
+      return;
+    }
+  }else if(u.cls.special==='Shadowstep'){
+    // simple: +1d4 bonus dmg if adjacent (backstab)
+    const e = state.units.E;
+    if(manhattan(u,e)<=1){
+      const toHit = die(20) + u.cls.atk;
+      if(toHit >= e.cls.ac){
+        let dmg = roll(u.cls.dmg) + die(4);
+        e.hp -= dmg;
+        log(`Shadowstep backstab for ${dmg} (roll ${toHit}).`);
+        if(e.hp<=0){ e.hp=0; renderUnits(); updateHUD(); log('Enemy defeated. You win!'); btnAttack.disabled=btnEnd.disabled=btnSpecial.disabled=true; return; }
+      }else{
+        log(`Shadowstep missed (roll ${toHit}).`);
+      }
+    }else{
+      log('Must be adjacent for Shadowstep backstab.');
+      updateHUD();
+      return;
+    }
+  }else{
+    log('No special available.');
+  }
+  renderUnits();
+  updateHUD();
+  endTurn();
+});
+
+btnNew.addEventListener('click', newMatch);
+btnAI.addEventListener('click', ()=>{
+  state.aiOn = !state.aiOn;
+  btnAI.textContent = `AI: ${state.aiOn?'On':'Off'}`;
+});
+
+// Class picker
+function buildClassPicker(){
+  classPickerEl.innerHTML='';
+  Object.keys(CLASSES).forEach(name=>{
+    const b=document.createElement('button');
+    b.textContent=name;
+    b.addEventListener('click', ()=>{
+      state.selectedClassName=name;
+      log(`Selected ${name}.`);
+      updateHUD();
+    });
+    classPickerEl.appendChild(b);
+  });
+}
+
+function newMatch(){
+  state.round=1; state.turn='P'; state.phase='Move';
+  buildGrid();
+  placeUnits();
+  renderUnits();
+  // set move points
+  state.moveLeft = CLASSES[state.selectedClassName].spd;
+  log('New match started.');
+  clearHighlights();
+  highlightReachable(state.units.P);
+  updateHUD();
+}
+
+// Boot
+buildClassPicker();
+buildGrid();
+placeUnits();
+renderUnits();
+startPlayerTurn();
+
+/* Uses existing: CLASSES, log(), and the header project tag logic. */
 </script>
-</body>
-</html>
